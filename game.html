@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Void Defense — Jogo</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+/* ── Painel de teclas (overlay) ── */
+#keys-panel{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(4,8,22,0.97);border:1px solid #2a3a5a;border-radius:12px;
+  padding:24px 32px;z-index:999;min-width:320px;}
+#keys-panel.show{display:block;}
+#keys-panel h3{font-family:'Orbitron',sans-serif;font-size:13px;color:#88ccff;margin-bottom:14px;text-align:center;}
+#keys-panel table{width:100%;border-collapse:collapse;}
+#keys-panel td{padding:4px 8px;font-size:12px;font-family:'Rajdhani',sans-serif;}
+#keys-panel td:first-child{color:#ffd700;font-weight:bold;width:80px;}
+#keys-panel td:last-child{color:#e8eaf0;}
+#keys-panel tr:hover td{background:rgba(255,255,255,0.04);}
+/* ── Pause overlay ── */
+#pause-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.7);z-index:997;align-items:center;justify-content:center;}
+#pause-overlay.show{display:flex;}
+#pause-overlay h1{font-family:'Orbitron',sans-serif;font-size:52px;color:#fff;
+  text-shadow:0 0 30px #4488ff;}
+/* ══ BARRA DE TROPAS ════════════════════════════════════════════════ */
+#troop-bar{
+  position:fixed;height:68px;
+  background:linear-gradient(to bottom,rgba(4,8,22,0.97),rgba(2,4,14,0.99));
+  border-top:1px solid #1a2436;
+  display:flex;align-items:center;padding:0 8px 0 14px;gap:5px;z-index:10;
+  transform-origin:bottom left;box-sizing:border-box;
+  box-shadow:0 -4px 20px rgba(0,0,0,0.6);
+}
+.troop-slot{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  width:94px;height:56px;border:1px solid #1e2a3a;border-radius:7px;
+  background:rgba(255,255,255,0.03);cursor:pointer;position:relative;
+  transition:.12s;flex-shrink:0;
+}
+.troop-slot:hover{border-color:#3366cc;background:rgba(20,60,180,0.14);}
+.troop-slot.active{
+  border-color:#44cc44;border-width:2px;
+  background:rgba(10,120,50,0.20);
+  box-shadow:0 0 12px rgba(50,200,80,0.35);
+}
+.troop-slot.no-gold{opacity:.32;pointer-events:none;}
+.troop-slot .key{
+  position:absolute;top:3px;left:5px;
+  font-family:'Orbitron',sans-serif;font-size:8px;
+  color:#334;background:rgba(0,0,0,0.5);padding:0 3px;border-radius:2px;
+}
+.troop-slot.active .key{color:#22bb44;}
+.troop-slot .dot{width:16px;height:16px;border-radius:3px;margin-bottom:2px;flex-shrink:0;box-shadow:0 1px 5px rgba(0,0,0,0.6);}
+.troop-slot .name{font-family:'Orbitron',sans-serif;font-size:8px;color:#b0bcc8;text-align:center;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.troop-slot.active .name{color:#44ee66;}
+.troop-slot .cost{font-family:'Orbitron',sans-serif;font-size:8px;color:#aa8822;margin-top:1px;}
+.troop-slot.active .cost{color:#ffe055;}
+.troop-slot.mtn{border-color:#5a6a5a;}.troop-slot.mtn .name::before{content:'⛰ ';}
+.troop-slot.support{border-color:#664488;}
+/* ══ BOTÕES FLUTUANTES ══════════════════════════════════════════════ */
+.game-btn{
+  position:fixed;z-index:20;
+  font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:0.5px;
+  background:rgba(3,6,18,0.9);border:1px solid #1e2a3a;
+  color:#445566;padding:5px 10px;border-radius:5px;cursor:pointer;transition:.12s;
+}
+.game-btn:hover{border-color:#334455;color:#8899aa;}
+#btn-menu{top:6px;left:6px;}
+#btn-menu:hover{border-color:#aa4422;color:#ff7755;}
+#btn-keys{top:62px;right:84px;}
+#btn-keys:hover{border-color:#aa8822;color:#ffd044;}
+#btn-pause{top:62px;right:4px;}
+#btn-pause:hover{border-color:#2255aa;color:#6699dd;}
+
+/* ══ MINI-JANELA (Picture-in-Picture) ══════════════════════════════ */
+#btn-pip{top:6px;right:6px;}
+#btn-pip:hover{border-color:#7733cc;color:#bb88ff;}
+
+#pip-window{
+  display:none;position:fixed;z-index:500;
+  width:340px;height:255px;
+  background:#03050c;
+  border:2px solid #3a4a6a;border-radius:10px;
+  overflow:hidden;
+  box-shadow:0 12px 40px rgba(0,0,0,0.7);
+  cursor:move;
+  resize:both;
+  min-width:240px;min-height:180px;
+  max-width:680px;max-height:520px;
+}
+#pip-window.show{display:block;}
+#pip-header{
+  height:26px;background:rgba(10,15,30,0.95);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 8px;border-bottom:1px solid #2a3a5a;
+  font-family:'Orbitron',sans-serif;font-size:9px;color:#6688aa;
+  user-select:none;
+}
+#pip-close{cursor:pointer;color:#553333;font-size:13px;padding:0 4px;}
+#pip-close:hover{color:#ff6666;}
+#pip-canvas-wrap{width:100%;height:calc(100% - 26px);position:relative;overflow:hidden;}
+#pip-canvas-wrap canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+#pip-resize-handle{
+  position:absolute;bottom:2px;right:2px;width:12px;height:12px;
+  cursor:nwse-resize;opacity:0.4;
+}
+
+/* ── Modal de upgrade de torre (diferente do menu de construção) ── */
+#upgrade-modal{display:none;position:fixed;background:rgba(6,10,24,0.98);
+  border:1px solid #4488ff;border-radius:10px;padding:16px;width:240px;z-index:50;
+  box-shadow:0 8px 24px rgba(0,0,0,0.5);}
+#upgrade-modal.show{display:block;}
+#upgrade-modal .hdr{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #2a3a5a;}
+#upgrade-modal .hdr h4{font-family:'Orbitron',sans-serif;font-size:12px;color:#fff;}
+#upgrade-modal .hdr .close{cursor:pointer;color:#667788;font-size:14px;}
+#upgrade-modal .hdr .close:hover{color:#ff6666;}
+#upgrade-modal .lvl-track{display:flex;gap:4px;margin-bottom:12px;}
+#upgrade-modal .lvl-dot{flex:1;height:6px;border-radius:3px;background:#1a2438;}
+#upgrade-modal .lvl-dot.filled{background:#4488ff;}
+#upgrade-modal .stat-compare{display:grid;grid-template-columns:1fr auto auto;
+  gap:4px 8px;font-size:11px;margin-bottom:12px;align-items:center;}
+#upgrade-modal .stat-compare .lbl{color:#8892aa;}
+#upgrade-modal .stat-compare .cur{color:#e8eaf0;text-align:right;}
+#upgrade-modal .stat-compare .nxt{color:#44ff88;text-align:right;font-weight:bold;}
+#upgrade-modal .arrow{color:#445566;font-size:9px;}
+#upgrade-modal button{width:100%;padding:9px;font-family:'Orbitron',sans-serif;
+  font-size:10px;border-radius:6px;cursor:pointer;border:1px solid;margin-bottom:6px;}
+#upgrade-modal .btn-up{background:rgba(0,150,255,0.15);border-color:#4488ff;color:#88ccff;}
+#upgrade-modal .btn-up:hover{background:rgba(0,170,255,0.25);}
+#upgrade-modal .btn-up:disabled{opacity:.35;cursor:not-allowed;}
+#upgrade-modal .btn-sell{background:rgba(200,50,50,0.12);border-color:#cc4422;color:#ff6644;}
+#upgrade-modal .btn-sell:hover{background:rgba(220,60,60,0.22);}
+#upgrade-modal .maxed{text-align:center;color:#ffd700;font-family:'Orbitron',sans-serif;
+  font-size:11px;padding:10px 0;}
+#upgrade-modal .aura-info{font-size:11px;color:#cc99ff;line-height:1.5;margin-bottom:12px;}
+
+/* ── Ecrã de boas-vindas (explica mecânicas) ── */
+#intro-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;}
+#intro-overlay.show{display:flex;}
+#intro-box{background:rgba(6,10,24,0.98);border:1px solid #2a3a5a;border-radius:14px;
+  padding:32px 40px;max-width:560px;width:90%;max-height:85vh;overflow-y:auto;}
+#intro-box h2{font-family:'Orbitron',sans-serif;font-size:18px;color:#fff;
+  text-align:center;margin-bottom:6px;text-shadow:0 0 16px #3366ff;}
+#intro-box .sub{text-align:center;font-size:11px;color:#556677;margin-bottom:20px;}
+.intro-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;
+  padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid #1a2438;}
+.intro-icon{font-size:20px;width:32px;text-align:center;flex-shrink:0;}
+.intro-text strong{display:block;font-family:'Orbitron',sans-serif;font-size:11px;margin-bottom:3px;}
+.intro-text span{font-size:12px;color:#9aa8ba;line-height:1.4;}
+#intro-box button{width:100%;margin-top:12px;padding:13px;font-family:'Orbitron',sans-serif;
+  font-size:13px;letter-spacing:1px;background:#0a2212;border:2px solid #44cc44;
+  color:#44ff66;border-radius:8px;cursor:pointer;}
+#intro-box button:hover{background:#0e3018;}
+</style>
+</head>
+<body>
+<canvas id="gc"></canvas>
+
+<!-- Barra de tropas (baixo) -->
+<div id="troop-bar"></div>
+
+<!-- Botões flutuantes -->
+<button id="btn-menu"  class="game-btn" onclick="goToMenu()">☰ MENU</button>
+<button id="btn-keys"  class="game-btn" onclick="toggleKeys()">? TECLAS</button>
+<button id="btn-pause" class="game-btn" onclick="togglePause()">⏸ PAUSA</button>
+<button id="btn-pip"   class="game-btn" onclick="togglePip()" title="Mini-janela: continua a ver o jogo enquanto navegas noutra zona da página">🗗 MINI-JANELA</button>
+
+<!-- Mini-janela arrastável (picture-in-picture do jogo) -->
+<div id="pip-window">
+  <div id="pip-header">
+    <span>🎮 VOID DEFENSE — em curso</span>
+    <span id="pip-close" onclick="togglePip()">✕</span>
+  </div>
+  <div id="pip-canvas-wrap"></div>
+  <div id="pip-resize-handle">⤡</div>
+</div>
+
+<!-- Overlay de pausa -->
+<div id="pause-overlay">
+  <div style="text-align:center;">
+    <h1>PAUSADO</h1>
+    <p style="color:#8892aa;font-family:Rajdhani,sans-serif;font-size:16px;margin-top:12px;">Prima P ou clica para continuar</p>
+  </div>
+</div>
+
+<!-- Painel de teclas -->
+<div id="keys-panel">
+  <h3>📋 CONTROLOS</h3>
+  <table>
+    <tr><td>1 — 5</td><td>Selecionar tropa do loadout</td></tr>
+    <tr><td>N / ESPAÇO</td><td>Próxima onda</td></tr>
+    <tr><td>P</td><td>Pausar / Continuar</td></tr>
+    <tr><td>S</td><td>Guardar jogo</td></tr>
+    <tr><td>C</td><td>Abrir Codex</td></tr>
+    <tr><td>? ou /</td><td>Mostrar/ocultar este painel</td></tr>
+    <tr><td>ESC</td><td>Cancelar / Fechar overlays</td></tr>
+    <tr><td>⛏ botão</td><td>Modo destruição de pedras ($40)</td></tr>
+    <tr><td>Click mapa</td><td>Colocar tropa selecionada</td></tr>
+    <tr><td>Click torre</td><td>Ver info / Upgrade / Vender</td></tr>
+    <tr><td>Click direito</td><td>Cancelar seleção</td></tr>
+  </table>
+  <div style="text-align:center;margin-top:14px;">
+    <button onclick="toggleKeys()" style="font-family:Orbitron,sans-serif;font-size:10px;
+      padding:6px 20px;border-radius:5px;cursor:pointer;background:#0a1428;
+      border:1px solid #4488ff;color:#88aaff;">FECHAR</button>
+  </div>
+</div>
+
+<!-- Modal de upgrade de torre -->
+<div id="upgrade-modal">
+  <div class="hdr">
+    <h4 id="up-name">TORRE</h4>
+    <span class="close" onclick="closeUpgradeModal()">✕</span>
+  </div>
+  <div class="lvl-track" id="up-track"></div>
+  <div id="up-body"></div>
+</div>
+
+<!-- Ecrã de boas-vindas / tutorial -->
+<div id="intro-overlay">
+  <div id="intro-box">
+    <h2>BEM-VINDO AO VOID DEFENSE</h2>
+    <div class="sub">O que cada elemento do ecrã significa:</div>
+
+    <div class="intro-row">
+      <div class="intro-icon" style="color:#44cc44;">❤</div>
+      <div class="intro-text">
+        <strong style="color:#44cc44;">BARRA VERMELHA/VERDE (canto superior esq.) — HP DA BASE</strong>
+        <span>Se chegar a 0, perdes o jogo. Inimigos que alcançam o fim do caminho tiram-te HP.</span>
+      </div>
+    </div>
+
+    <div class="intro-row">
+      <div class="intro-icon" style="color:#ffd700;">$</div>
+      <div class="intro-text">
+        <strong style="color:#ffd700;">OURO ($)</strong>
+        <span>Usado para construir e fazer upgrade de torres. Ganha-se matando inimigos e completando ondas.</span>
+      </div>
+    </div>
+
+    <div class="intro-row">
+      <div class="intro-icon" style="color:#00ccff;">~</div>
+      <div class="intro-text">
+        <strong style="color:#00ccff;">ENERGIA (barra azul)</strong>
+        <span>Alimenta as tuas torres — cada uma consome energia/segundo. Se acabar, as torres desligam-se! Regenera sozinha lentamente.</span>
+      </div>
+    </div>
+
+    <div class="intro-row">
+      <div class="intro-icon" style="color:#ff4466;">🩸</div>
+      <div class="intro-text">
+        <strong style="color:#ff4466;">SANGUE</strong>
+        <span>Zombies derrotados largam sangue no mapa — clica em "COLETAR SANGUE" para o apanhar. Usa-o para curar a base ou ativar buffs temporários. Converte-se automaticamente em energia aos poucos.</span>
+      </div>
+    </div>
+
+    <div class="intro-row">
+      <div class="intro-icon">⛏</div>
+      <div class="intro-text">
+        <strong>DESTRUIR PEDRAS</strong>
+        <span>Algumas pedras cinzentas bloqueiam o terreno. Clica no botão "⛏ PEDRAS" no topo e depois numa pedra para a destruir por ouro, libertando espaço para construir.</span>
+      </div>
+    </div>
+
+    <div class="intro-row">
+      <div class="intro-icon">⛰</div>
+      <div class="intro-text">
+        <strong>TILES DE MONTANHA</strong>
+        <span>Apenas tropas especiais de montanha (Artilharia, Observador) podem ser colocadas aí — reconhece-se pela textura rochosa elevada.</span>
+      </div>
+    </div>
+
+    <div class="intro-row">
+      <div class="intro-icon">⌨</div>
+      <div class="intro-text">
+        <strong>BARRA DE TROPAS (baixo do ecrã)</strong>
+        <span>O teu loadout (até 5 tropas). Clica ou usa as teclas 1-5 para selecionar, depois clica no mapa para construir.</span>
+      </div>
+    </div>
+
+    <div class="intro-row">
+      <div class="intro-icon">⏭</div>
+      <div class="intro-text">
+        <strong>SALTAR ONDA</strong>
+        <span>Enquanto uma onda decorre, podes saltá-la a qualquer momento (botão laranja no painel direito). Remove os inimigos restantes e dá-te a recompensa base — mas sem o bónus de rapidez.</span>
+      </div>
+    </div>
+
+    <button onclick="closeIntro()">ENTENDI — VAMOS DEFENDER A BASE!</button>
+  </div>
+</div>
+
+<!-- Scripts (ordem importa!) -->
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/items.js"></script>
+<script src="js/map.js"></script>
+<script src="js/codex.js"></script>
+<script src="js/enemy.js"></script>
+<script src="js/tower.js"></script>
+<script src="js/projectile.js"></script>
+<script src="js/economy.js"></script>
+<script src="js/waves.js"></script>
+<script src="js/save.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script src="js/profile.js"></script>
+
+<script>
+// ── Alinha a barra de tropas com a área real do canvas (responsivo) ──
+function alignTroopBar() {
+  var canvas = document.getElementById('gc');
+  var bar = document.getElementById('troop-bar');
+  if (!canvas || !bar) return;
+  var rect = canvas.getBoundingClientRect();
+  var scale = rect.width / 1280; // C.W
+  bar.style.width  = (1048) + 'px';
+  bar.style.left   = rect.left + 'px';
+  bar.style.bottom = (window.innerHeight - rect.bottom) + 'px';
+  bar.style.transform = 'scale(' + scale + ')';
+}
+window.addEventListener('resize', alignTroopBar);
+setTimeout(alignTroopBar, 100);
+setInterval(alignTroopBar, 500); // garante alinhamento mesmo após mudanças de layout
+
+// ── Barra de tropas (HTML, sincronizada com G.loadout) ──────────
+function updateTroopBar() {
+  var bar = document.getElementById('troop-bar');
+  if (!bar || typeof G === 'undefined') return;
+  bar.innerHTML = '';
+
+  // Label lateral
+  var lbl = document.createElement('div');
+  lbl.style.cssText = 'font-family:Orbitron,sans-serif;font-size:7px;color:#1e2a3a;letter-spacing:2px;writing-mode:vertical-rl;transform:rotate(180deg);flex-shrink:0;margin-right:2px;';
+  lbl.textContent = 'TROPAS';
+  bar.appendChild(lbl);
+
+  var loadout = G.loadout || [];
+  for (var i = 0; i < loadout.length; i++) {
+    var id = loadout[i];
+    var cf = C.TW_DEF[id]; if (!cf) continue;
+    var canAfford = typeof ECO !== 'undefined' && ECO.can(cf.cost);
+    var isActive  = typeof UI !== 'undefined' && UI.placing === id;
+    var isMtn     = !!cf.mountainOnly;
+    var isSupport = !!cf.support;
+
+    var slot = document.createElement('div');
+    var cls = 'troop-slot';
+    if (isActive)   cls += ' active';
+    if (!canAfford) cls += ' no-gold';
+    if (isMtn)      cls += ' mtn';
+    if (isSupport)  cls += ' support';
+    slot.className = cls;
+    slot.title = cf.name + (isMtn?' (⛰ só em montanha)':isSupport?' (suporte)':'')
+               + '\n' + cf.desc + '\nCusto: $' + cf.cost
+               + (isMtn?'\nApenas colocável em tiles de montanha (⛰)':'')
+               + (isSupport?'\nNão ataca — emite aura para torres próximas':'');
+
+    // Tecla de atalho
+    var keyEl = document.createElement('span');
+    keyEl.className = 'key'; keyEl.textContent = i+1;
+    slot.appendChild(keyEl);
+
+    // Dot de cor (maior, com borda)
+    var dotEl = document.createElement('div');
+    dotEl.className = 'dot';
+    dotEl.style.background = cf.col.top;
+    dotEl.style.border = '1px solid ' + (isActive ? '#44cc44' : 'rgba(0,0,0,0.4)');
+    slot.appendChild(dotEl);
+
+    // Nome
+    var nameEl = document.createElement('span');
+    nameEl.className = 'name';
+    var nameStr = cf.name;
+    if (isMtn) nameStr = '⛰ ' + nameStr;
+    else if (isSupport) nameStr = '⚡ ' + nameStr;
+    nameEl.textContent = nameStr;
+    slot.appendChild(nameEl);
+
+    // Custo — cor muda consoante podes pagar
+    var costEl = document.createElement('span');
+    costEl.className = 'cost';
+    costEl.style.color = canAfford ? '#ccaa33' : '#662222';
+    costEl.textContent = '$' + cf.cost;
+    slot.appendChild(costEl);
+
+    // Barra de "não podes pagar" overlay visual
+    if (!canAfford) {
+      var lock = document.createElement('div');
+      lock.style.cssText = 'position:absolute;inset:0;border-radius:6px;background:rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:12px;';
+      lock.textContent = '🔒';
+      slot.appendChild(lock);
+    }
+
+    (function(tid) {
+      slot.addEventListener('click', function() {
+        if (G && G.state === 'playing') {
+          UI.placing = (UI.placing === tid) ? null : tid;
+          UI.selT = null; G.sTwr = null;
+          updateTroopBar();
+        }
+      });
+    })(id);
+    bar.appendChild(slot);
+  }
+
+  // Separador + indicador de modo destruição
+  if (typeof UI !== 'undefined' && UI.destroyMode) {
+    var sep = document.createElement('div');
+    sep.style.cssText = 'width:1px;height:40px;background:#1e2a3a;flex-shrink:0;margin:0 4px;';
+    bar.appendChild(sep);
+    var dm = document.createElement('div');
+    dm.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 10px;border:1px solid #cc8800;border-radius:7px;background:rgba(200,120,0,0.15);flex-shrink:0;cursor:pointer;';
+    dm.innerHTML = '<span style="font-size:14px;">⛏</span><span style="font-family:Orbitron,sans-serif;font-size:7px;color:#ffcc44;margin-top:2px;">MODO PEDRAS</span>';
+    dm.onclick = function() { if(UI) { UI.destroyMode=false; updateTroopBar(); } };
+    bar.appendChild(dm);
+  }
+}
+// Atualiza 10x/seg
+setInterval(updateTroopBar, 100);
+
+// ── Modal de upgrade de torre (substitui o pequeno painel do canvas) ──
+var lastSelTower = null;
+function syncUpgradeModal() {
+  if (!G || typeof UI === 'undefined') return;
+  var t = UI.selT;
+  var modal = document.getElementById('upgrade-modal');
+
+  if (!t || G.state !== 'playing') {
+    modal.classList.remove('show');
+    lastSelTower = null;
+    return;
+  }
+
+  modal.classList.add('show');
+
+  // Posiciona o modal perto da torre, dentro dos limites do ecrã
+  var canvas = document.getElementById('gc');
+  var rect = canvas.getBoundingClientRect();
+  var scale = rect.width / 1280;
+  var iso = U.iso(t.col, t.row);
+  var screenX = rect.left + iso.x * scale;
+  var screenY = rect.top + iso.y * scale;
+  var modalW = 240;
+  var left = Math.min(Math.max(8, screenX + 20), window.innerWidth - modalW - 8);
+  var top  = Math.min(Math.max(8, screenY - 80), window.innerHeight - 280);
+  modal.style.left = left + 'px';
+  modal.style.top  = top + 'px';
+
+  var cf = C.TW_DEF[t.type];
+  document.getElementById('up-name').textContent = cf.name.toUpperCase() + (t.support ? ' ⚡' : ' LV' + t.level);
+
+  // Track de níveis (3 pontos)
+  var track = document.getElementById('up-track'); track.innerHTML = '';
+  if (!t.support) {
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement('div');
+      dot.className = 'lvl-dot' + (i <= t.level ? ' filled' : '');
+      track.appendChild(dot);
+    }
+  }
+
+  var body = document.getElementById('up-body');
+
+  if (t.support) {
+    // Torre de suporte: mostra info da aura, sem upgrade
+    body.innerHTML =
+      '<div class="aura-info">' +
+        '⚡ Aura <b>' + t.auraType.toUpperCase() + '</b>: +' + Math.floor((t.auraMult-1)*100) + '%<br>' +
+        'Raio de efeito: <b>' + t.auraRange + '</b> tiles<br>' +
+        'Consumo: <b>' + t.drain + '</b> energia/s<br><br>' +
+        '<span style="color:#8892aa;">Todas as torres normais dentro do raio recebem o bónus automaticamente.</span>' +
+      '</div>' +
+      '<button class="btn-sell" onclick="sellSelectedTower()">VENDER &nbsp;$' + t.sell + '</button>';
+  } else if (t.level >= 3) {
+    body.innerHTML =
+      '<div class="maxed">★★ NÍVEL MÁXIMO ★★</div>' +
+      buildStatRows(t, null) +
+      '<button class="btn-sell" onclick="sellSelectedTower()">VENDER &nbsp;$' + t.sell + '</button>';
+  } else {
+    var upCost = t.getUpgCost();
+    var canAfford = ECO.can(upCost);
+    var nextLv = t.level; // índice do array upgDmg para o PRÓXIMO nível
+    var nextDmg   = Math.floor(t.baseDmg * cf.upgDmg[nextLv]);
+    var nextRange = (t.baseRange * cf.upgRange[nextLv]).toFixed(1);
+    var nextRate  = (t.baseRate * cf.upgRate[nextLv]).toFixed(2);
+
+    body.innerHTML =
+      buildStatRows(t, {dmg:nextDmg, range:nextRange, rate:nextRate}) +
+      '<button class="btn-up" id="up-btn" ' + (canAfford?'':'disabled') + ' onclick="upgradeSelectedTower()">' +
+        '⬆ UPGRADE PARA LV' + (t.level+1) + ' &nbsp;—&nbsp; $' + upCost +
+      '</button>' +
+      '<button class="btn-sell" onclick="sellSelectedTower()">VENDER &nbsp;$' + t.sell + '</button>';
+  }
+}
+
+function buildStatRows(t, next) {
+  var rows = [['Dano', t.dmg, next?next.dmg:null],
+              ['Alcance', t.range.toFixed(1), next?next.range:null],
+              ['Cadência', t.rate.toFixed(2)+'/s', next?next.rate+'/s':null]];
+  if (t.aoe) rows.push(['AOE', t.aoe, next?t.aoe:null]); // AOE não muda com upgrade atualmente
+  var html = '<div class="stat-compare">';
+  rows.forEach(function(r){
+    html += '<span class="lbl">'+r[0]+'</span><span class="cur">'+r[1]+'</span>';
+    html += next ? '<span class="nxt">→ '+r[2]+'</span>' : '<span></span>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function upgradeSelectedTower() {
+  if (!UI.selT) return;
+  var t = UI.selT, uc = t.getUpgCost();
+  if (ECO.can(uc) && t.level < 3) {
+    ECO.spend(uc); t.upgrade();
+    if (t.level === 3) CODEX.onMaxed();
+    var p = U.iso(t.col, t.row);
+    PS.txt(p.x, p.y-40, 'UPGRADE LV'+t.level, '#ffd700', 12);
+    syncUpgradeModal();
+  }
+}
+
+function sellSelectedTower() {
+  if (!UI.selT) return;
+  var t = UI.selT, ip = U.iso(t.col, t.row);
+  ECO.addG(t.sell); PS.txt(ip.x, ip.y-30, '+'+t.sell+' CR', C.P.gold);
+  MAP.clrT(t.col, t.row);
+  var idx = G.towers.indexOf(t); if (idx>=0) G.towers.splice(idx,1);
+  UI.selT = null; G.sTwr = null;
+  closeUpgradeModal();
+}
+
+function closeUpgradeModal() {
+  UI.selT = null; G.sTwr = null;
+  document.getElementById('upgrade-modal').classList.remove('show');
+}
+
+setInterval(syncUpgradeModal, 100);
+
+// ── Mini-janela (Picture-in-Picture) ────────────────────────────
+// Mostra uma cópia ao vivo do canvas principal numa janela flutuante,
+// arrastável e redimensionável, sempre por cima do resto da interface.
+// NOTA: isto funciona DENTRO desta página (ex: enquanto vês o Codex
+// ou o painel de save). Não é possível manter o jogo a correr ao
+// navegar para outra página (menu.html) — isso é uma limitação de
+// qualquer site, o JS para quando se sai da página.
+var pipActive = false, pipCanvas = null, pipCtx = null;
+
+function togglePip() {
+  pipActive = !pipActive;
+  var win = document.getElementById('pip-window');
+  win.classList.toggle('show', pipActive);
+  if (pipActive && !pipCanvas) {
+    pipCanvas = document.createElement('canvas');
+    pipCanvas.width = 1280; pipCanvas.height = 720;
+    document.getElementById('pip-canvas-wrap').appendChild(pipCanvas);
+    pipCtx = pipCanvas.getContext('2d');
+    requestAnimationFrame(pipLoop);
+  }
+}
+
+function pipLoop() {
+  if (pipActive && pipCtx && G && G.canvas) {
+    pipCtx.drawImage(G.canvas, 0, 0, 1280, 720);
+  }
+  if (pipActive) requestAnimationFrame(pipLoop);
+}
+
+// ── Arrastar a mini-janela ──────────────────────────────────────
+(function() {
+  var win = document.getElementById('pip-window');
+  var header = document.getElementById('pip-header');
+  var dragging = false, offX = 0, offY = 0;
+
+  // Posição inicial: canto superior direito
+  win.style.top = '76px';
+  win.style.right = '12px';
+
+  header.addEventListener('mousedown', function(e) {
+    dragging = true;
+    var rect = win.getBoundingClientRect();
+    offX = e.clientX - rect.left;
+    offY = e.clientY - rect.top;
+    win.style.right = 'auto'; // muda para left-based depois do primeiro drag
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var x = e.clientX - offX, y = e.clientY - offY;
+    x = Math.max(0, Math.min(window.innerWidth - win.offsetWidth, x));
+    y = Math.max(0, Math.min(window.innerHeight - win.offsetHeight, y));
+    win.style.left = x + 'px';
+    win.style.top = y + 'px';
+  });
+  document.addEventListener('mouseup', function() { dragging = false; });
+
+  // Touch support (mobile)
+  header.addEventListener('touchstart', function(e) {
+    dragging = true;
+    var t = e.touches[0], rect = win.getBoundingClientRect();
+    offX = t.clientX - rect.left; offY = t.clientY - rect.top;
+    win.style.right = 'auto';
+  });
+  document.addEventListener('touchmove', function(e) {
+    if (!dragging) return;
+    var t = e.touches[0];
+    var x = Math.max(0, Math.min(window.innerWidth - win.offsetWidth, t.clientX - offX));
+    var y = Math.max(0, Math.min(window.innerHeight - win.offsetHeight, t.clientY - offY));
+    win.style.left = x + 'px'; win.style.top = y + 'px';
+  });
+  document.addEventListener('touchend', function() { dragging = false; });
+})();
+
+// ── Perfil ativo: guarda dados ao sair da página ────────────────
+window.addEventListener('beforeunload', function() {
+  if (typeof PROFILE !== 'undefined') PROFILE.save();
+});
+(function() {
+  if (typeof PROFILE !== 'undefined') {
+    var id = PROFILE.activeId();
+    if (!id || !PROFILE.list().some(function(p){ return p.id === id; })) {
+      window.location.href = 'login.html';
+    }
+  }
+})();
+
+// ── Pausa ──────────────────────────────────────────────────────
+function goToMenu() {
+  if (G && G.state === 'playing') {
+    if (!confirm('Voltar ao menu? O jogo é guardado automaticamente.')) return;
+    SAVE.save(0);
+  }
+  if (typeof PROFILE !== 'undefined') PROFILE.save();
+  window.location.href = 'menu.html';
+}
+function togglePause() {
+  if (!G || G.state !== 'playing') return;
+  G.paused = !G.paused;
+  document.getElementById('pause-overlay').classList.toggle('show', G.paused);
+  document.getElementById('btn-pause').textContent = G.paused ? '▶ CONTINUAR' : '⏸ PAUSA';
+}
+document.getElementById('pause-overlay').addEventListener('click', togglePause);
+
+// ── Teclas ─────────────────────────────────────────────────────
+function toggleKeys() {
+  var p = document.getElementById('keys-panel');
+  p.classList.toggle('show');
+}
+
+// (Nota: o "saltar onda" agora é um botão sempre visível no painel direito
+// do canvas — ver ui.js _wctrl/_skipBtn e game.js G.skipWave().)
+
+// ── Ecrã de boas-vindas (mostra uma vez por sessão de jogo) ────
+var introShown = false;
+function closeIntro() {
+  document.getElementById('intro-overlay').classList.remove('show');
+  if (G) G.paused = false;
+}
+setInterval(function() {
+  if (!G) return;
+  if (G.state === 'playing' && !introShown) {
+    introShown = true;
+    G.paused = true;
+    document.getElementById('intro-overlay').classList.add('show');
+  }
+  if (G.state === 'menu') introShown = false; // reset se voltar ao menu interno
+}, 200);
+
+// ── Sincroniza pausa com tecla P do game.js ────────────────────
+setInterval(function(){
+  if (G && G.paused !== undefined) {
+    document.getElementById('pause-overlay').classList.toggle('show', G.paused);
+    document.getElementById('btn-pause').textContent = G.paused ? '▶ CONTINUAR' : '⏸ PAUSA';
+  }
+}, 100);
+</script>
+</body>
+</html>
