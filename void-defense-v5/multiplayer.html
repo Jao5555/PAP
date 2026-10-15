@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Void Defense — Multijogador</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;min-height:100%;background:#060c1c;color:#e8eaf0;font-family:'Rajdhani',sans-serif;font-size:16px;}
+
+#topnav{display:flex;align-items:center;gap:12px;background:rgba(4,8,22,0.95);border-bottom:2px solid #1a2a3a;padding:0 32px;height:64px;position:sticky;top:0;z-index:100;}
+#topnav h1{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:#fff;letter-spacing:3px;text-shadow:0 0 16px #aa44ff;margin-right:auto;}
+.nav-link{font-family:'Orbitron',sans-serif;font-size:11px;color:#445566;text-decoration:none;padding:8px 14px;border-radius:6px;border:1px solid #1a2a3a;transition:.15s;}
+.nav-link:hover{border-color:#334455;color:#778899;}
+
+#tabs{display:flex;gap:6px;padding:20px 32px 0;background:rgba(4,8,22,0.8);border-bottom:1px solid #1a2a3a;}
+.tab{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;padding:12px 28px;border:1px solid #1a2a3a;border-bottom:none;background:rgba(255,255,255,0.02);color:#3a4a5a;cursor:pointer;border-radius:8px 8px 0 0;transition:.15s;}
+.tab:hover{color:#667788;}
+.tab.active{background:rgba(40,15,60,0.9);color:#cc99ff;border-color:#5a2a7a;border-bottom:2px solid #060c1c;}
+
+#content{padding:32px;max-width:900px;margin:0 auto;}
+.page{display:none;}
+.page.active{display:block;}
+
+.card{background:rgba(255,255,255,0.03);border:1px solid #1e2e3e;border-radius:12px;padding:24px;margin-bottom:18px;}
+.section-title{font-family:'Orbitron',sans-serif;font-size:13px;color:#445566;letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;}
+
+/* ── Status de ligação ── */
+#conn-status{display:flex;align-items:center;gap:8px;font-family:'Orbitron',sans-serif;font-size:11px;padding:8px 16px;border-radius:8px;margin-bottom:18px;}
+#conn-status.ok{background:rgba(30,160,60,0.1);color:#44cc66;border:1px solid #1a5a2a;}
+#conn-status.bad{background:rgba(180,30,30,0.12);color:#ff6644;border:1px solid #5a1a1a;}
+#conn-status .dot{width:8px;height:8px;border-radius:50%;background:currentColor;}
+
+/* ── Botões grandes de escolha ── */
+.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.choice-card{padding:28px 20px;border-radius:12px;border:2px solid #1e2e3e;background:rgba(255,255,255,0.02);cursor:pointer;text-align:center;transition:.15s;}
+.choice-card:hover{border-color:#5a2a7a;background:rgba(80,30,120,0.08);}
+.choice-card .ci{font-size:34px;margin-bottom:10px;}
+.choice-card .ct{font-family:'Orbitron',sans-serif;font-size:14px;color:#c8d8e8;margin-bottom:6px;}
+.choice-card .cd{font-size:12px;color:#556677;}
+
+/* ── Inputs ── */
+.field-row{display:flex;gap:10px;align-items:center;margin-bottom:14px;}
+.field-row label{font-family:'Orbitron',sans-serif;font-size:11px;color:#556677;width:110px;flex-shrink:0;}
+input[type=text]{flex:1;padding:11px 14px;background:rgba(255,255,255,0.04);border:1px solid #1e2e3e;border-radius:7px;color:#e8eaf0;font-family:'Rajdhani',sans-serif;font-size:14px;}
+input[type=text]:focus{outline:none;border-color:#5a2a7a;}
+input.code-input{font-family:'Orbitron',sans-serif;letter-spacing:4px;text-transform:uppercase;text-align:center;font-size:18px;}
+
+.btn{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;padding:12px 24px;border-radius:8px;cursor:pointer;border:1px solid;transition:.15s;letter-spacing:1px;}
+.btn-purple{background:rgba(120,40,180,0.2);border-color:#7733aa;color:#cc88ff;}
+.btn-purple:hover{background:rgba(140,50,200,0.3);box-shadow:0 0 16px rgba(140,50,200,0.3);}
+.btn-purple:disabled{opacity:.3;cursor:not-allowed;}
+.btn-green{background:rgba(30,120,60,0.2);border-color:#44aa44;color:#44cc44;}
+.btn-green:hover{background:rgba(40,140,70,0.3);}
+.btn-red{background:rgba(160,30,30,0.15);border-color:#883322;color:#cc6644;}
+.btn-red:hover{background:rgba(180,40,40,0.25);}
+.btn-block{width:100%;padding:16px;font-size:14px;}
+
+/* ── Sala/Lobby ── */
+#room-code-display{font-family:'Orbitron',sans-serif;font-size:42px;letter-spacing:10px;text-align:center;color:#cc88ff;text-shadow:0 0 24px rgba(180,100,255,0.4);margin:12px 0;}
+#room-code-sub{text-align:center;font-size:12px;color:#556677;margin-bottom:20px;}
+#player-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.player-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;border:1px solid #1e2e3e;background:rgba(255,255,255,0.02);}
+.player-row.ready{border-color:#1a5a2a;background:rgba(30,120,60,0.1);}
+.player-row .pavatar{width:32px;height:32px;border-radius:6px;background:#2a3a5a;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.player-row .pname{flex:1;font-family:'Orbitron',sans-serif;font-size:13px;}
+.player-row .pready{font-size:11px;font-family:'Orbitron',sans-serif;}
+.pready.is-ready{color:#44cc44;}
+.pready.not-ready{color:#445566;}
+
+#waiting-msg{text-align:center;color:#556677;font-size:13px;padding:16px 0;}
+#construction-notice{background:rgba(180,140,0,0.1);border:1px solid #553a00;border-radius:10px;padding:18px;margin-top:16px;font-size:13px;color:#ddbb66;line-height:1.6;}
+
+/* ── Leaderboard ── */
+#lb-tabs{display:flex;gap:8px;margin-bottom:18px;}
+.lb-tab{font-family:'Orbitron',sans-serif;font-size:11px;padding:8px 18px;border-radius:6px;border:1px solid #1e2e3e;background:rgba(255,255,255,0.02);color:#445566;cursor:pointer;transition:.12s;}
+.lb-tab.active{border-color:#5a2a7a;color:#cc99ff;background:rgba(80,30,120,0.1);}
+table{width:100%;border-collapse:collapse;}
+th{font-family:'Orbitron',sans-serif;font-size:10px;color:#445566;text-align:left;padding:10px 12px;border-bottom:1px solid #1e2e3e;text-transform:uppercase;}
+td{padding:10px 12px;font-size:13px;border-bottom:1px solid #141e2c;}
+tr:hover td{background:rgba(255,255,255,0.02);}
+.lb-rank{font-family:'Orbitron',sans-serif;color:#556677;width:30px;}
+.lb-rank.r1{color:#ffd700;} .lb-rank.r2{color:#c0c0c0;} .lb-rank.r3{color:#cc8844;}
+.lb-won{color:#44cc44;} .lb-lost{color:#cc4444;}
+#lb-empty{text-align:center;color:#334455;padding:40px 0;font-size:13px;}
+
+/* ── Instruções de rede ── */
+.net-info{font-size:12px;color:#556677;line-height:1.7;}
+.net-info code{background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;font-family:monospace;color:#88ccff;}
+
+/* ── Ecrã de jogo cooperativo (dentro da própria página, sem navegar) ── */
+#coop-game{display:none;}
+#coop-game.show{display:block;}
+#coop-canvas-wrap{position:relative;width:100%;max-width:1100px;margin:0 auto;background:#03050c;border-radius:12px;overflow:hidden;border:1px solid #1e2e3e;}
+#coop-canvas{display:block;width:100%;height:auto;cursor:default;}
+#coop-hud{position:absolute;top:0;left:0;right:0;background:rgba(3,5,16,0.9);padding:10px 16px;display:flex;gap:24px;align-items:center;font-family:'Orbitron',sans-serif;font-size:12px;border-bottom:1px solid #1e2e3e;flex-wrap:wrap;}
+.hud-stat{display:flex;flex-direction:column;gap:2px;}
+.hud-stat .hl{font-size:8px;color:#445566;letter-spacing:1px;}
+.hud-stat .hv{font-weight:700;}
+#coop-controls{display:flex;gap:8px;padding:12px 16px;background:rgba(6,10,24,0.8);flex-wrap:wrap;align-items:center;border-top:1px solid #1e2e3e;}
+.tower-pick{padding:8px 12px;border-radius:7px;border:1px solid #1e2e3e;background:rgba(255,255,255,0.03);cursor:pointer;font-family:'Orbitron',sans-serif;font-size:10px;color:#8899aa;display:flex;align-items:center;gap:6px;transition:.12s;}
+.tower-pick:hover{border-color:#3366aa;}
+.tower-pick.selected{border-color:#44cc44;background:rgba(30,150,60,0.15);color:#44ee66;}
+.tower-pick .tpdot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+#coop-players{display:flex;gap:6px;font-size:10px;color:#556677;padding:0 16px 10px;}
+#coop-log{max-height:60px;overflow-y:auto;padding:8px 16px;font-size:11px;color:#4a5a6a;border-top:1px solid #141e2c;}
+</style>
+</head>
+<body>
+
+<div id="topnav">
+  <h1>👥 MULTIJOGADOR</h1>
+  <a class="nav-link" href="index.html">◀ Capa</a>
+  <a class="nav-link" href="menu.html">🏪 Menu</a>
+</div>
+
+<div id="tabs">
+  <div class="tab active" onclick="showTab('rooms')">🚪 SALAS</div>
+  <div class="tab" onclick="showTab('leaderboard')">🏆 LEADERBOARD</div>
+  <div class="tab" onclick="showTab('network')">📡 LIGAÇÃO EM REDE</div>
+</div>
+
+<div id="content">
+
+  <!-- ═══ SALAS ═══ -->
+  <div class="page active" id="page-rooms">
+    <div id="conn-status" class="bad"><span class="dot"></span><span id="conn-text">A ligar ao servidor...</span></div>
+
+    <!-- Passo 1: escolher ação -->
+    <div id="step-choose" class="card">
+      <div class="section-title">O que queres fazer?</div>
+      <div class="choice-grid">
+        <div class="choice-card" onclick="showCreateForm()">
+          <div class="ci">➕</div>
+          <div class="ct">CRIAR SALA</div>
+          <div class="cd">Começa uma sala e convida amigos com um código</div>
+        </div>
+        <div class="choice-card" onclick="showJoinForm()">
+          <div class="ci">🔑</div>
+          <div class="ct">ENTRAR EM SALA</div>
+          <div class="cd">Já tens um código? Entra na sala de um amigo</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Passo 2a: criar sala -->
+    <div id="step-create" class="card" style="display:none;">
+      <div class="section-title">Criar Sala</div>
+      <div class="field-row">
+        <label>O teu nome</label>
+        <input type="text" id="create-name" maxlength="20" placeholder="Como te chamas?">
+      </div>
+      <div class="choice-grid" style="margin-bottom:18px;">
+        <div class="choice-card" id="mode-coop" onclick="selectMode('coop')">
+          <div class="ci">🤝</div>
+          <div class="ct">COOPERATIVO</div>
+          <div class="cd">Defendem a mesma base juntos</div>
+        </div>
+        <div class="choice-card" id="mode-pvp" onclick="selectMode('pvp')">
+          <div class="ci">⚔️</div>
+          <div class="ct">COMPETITIVO</div>
+          <div class="cd">Cada um com a sua base, 1v1</div>
+        </div>
+      </div>
+      <button class="btn btn-purple btn-block" id="btn-do-create" onclick="doCreateRoom()" disabled>CRIAR SALA</button>
+      <button class="btn btn-red" style="margin-top:10px;" onclick="backToChoose()">◀ Voltar</button>
+    </div>
+
+    <!-- Passo 2b: entrar em sala -->
+    <div id="step-join" class="card" style="display:none;">
+      <div class="section-title">Entrar em Sala</div>
+      <div class="field-row">
+        <label>O teu nome</label>
+        <input type="text" id="join-name" maxlength="20" placeholder="Como te chamas?">
+      </div>
+      <div class="field-row">
+        <label>Código da sala</label>
+        <input type="text" id="join-code" class="code-input" maxlength="5" placeholder="XXXXX">
+      </div>
+      <button class="btn btn-purple btn-block" onclick="doJoinRoom()">ENTRAR NA SALA</button>
+      <button class="btn btn-red" style="margin-top:10px;" onclick="backToChoose()">◀ Voltar</button>
+      <div id="join-error" style="color:#cc4444;font-size:12px;margin-top:10px;"></div>
+    </div>
+
+    <!-- Passo 3: dentro da sala -->
+    <div id="step-room" class="card" style="display:none;">
+      <div class="section-title" id="room-mode-label">SALA</div>
+      <div id="room-code-display">-----</div>
+      <div id="room-code-sub">Partilha este código com quem queres jogar</div>
+
+      <div id="player-list"></div>
+      <div id="waiting-msg">A aguardar mais jogadores...</div>
+
+      <button class="btn btn-green btn-block" id="btn-ready" onclick="markReady()">✓ ESTOU PRONTO</button>
+      <button class="btn btn-red" style="margin-top:10px;" onclick="leaveRoomBtn()">Sair da Sala</button>
+
+      <div id="construction-notice" style="display:none;">
+        🚧 <b>Modo Competitivo</b> ainda em desenvolvimento — a mecânica de "enviar inimigos ao adversário" ainda não está desenhada. Por agora, joga uma partida normal.
+        <div style="margin-top:14px;">
+          <a class="btn btn-purple" href="menu.html">▶ Jogar Partida Normal</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ JOGO COOPERATIVO (em direto, sem sair da página) ═══ -->
+    <div id="coop-game">
+      <div id="coop-players"></div>
+      <div id="coop-canvas-wrap">
+        <div id="coop-hud">
+          <div class="hud-stat"><span class="hl">ONDA</span><span class="hv" id="hud-wave" style="color:#88ccff;">1/8</span></div>
+          <div class="hud-stat"><span class="hl">OURO</span><span class="hv" id="hud-gold" style="color:#ffd700;">0</span></div>
+          <div class="hud-stat"><span class="hl">ENERGIA</span><span class="hv" id="hud-enrg" style="color:#00ccff;">0/0</span></div>
+          <div class="hud-stat"><span class="hl">HP BASE</span><span class="hv" id="hud-hp" style="color:#44cc44;">0/100</span></div>
+          <div class="hud-stat"><span class="hl">SANGUE</span><span class="hv" id="hud-blood" style="color:#ff4466;">0</span></div>
+          <div style="margin-left:auto;display:flex;gap:8px;">
+            <button class="btn btn-green" style="padding:8px 14px;font-size:10px;" onclick="mpStartWave()">▶ ONDA</button>
+            <button class="btn btn-red" style="padding:8px 14px;font-size:10px;" onclick="mpSkipWave()">⏭ SALTAR</button>
+            <button class="btn btn-purple" style="padding:8px 14px;font-size:10px;" onclick="mpCollectBlood()">🩸 COLETAR</button>
+          </div>
+        </div>
+        <canvas id="coop-canvas" width="1100" height="620"></canvas>
+      </div>
+      <div id="coop-controls"></div>
+      <div id="coop-log"></div>
+    </div>
+  </div>
+
+  <!-- ═══ LEADERBOARD ═══ -->
+  <div class="page" id="page-leaderboard">
+    <div class="card">
+      <div id="lb-tabs">
+        <div class="lb-tab active" onclick="loadLeaderboard('solo')">Solo</div>
+        <div class="lb-tab" onclick="loadLeaderboard('coop')">Cooperativo</div>
+        <div class="lb-tab" onclick="loadLeaderboard('pvp')">Competitivo</div>
+      </div>
+      <div id="lb-table-wrap">
+        <div id="lb-empty">A carregar...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ REDE ═══ -->
+  <div class="page" id="page-network">
+    <div class="card">
+      <div class="section-title">Como jogar com amigos</div>
+      <div class="net-info">
+        <p><b style="color:#88ccff;">Mesma WiFi (mais fácil):</b><br>
+        Os teus amigos abrem o browser e vão a <code id="lan-url">http://...</code> — esse é o endereço deste PC na tua rede.
+        Tens de partilhar esse link com eles (por mensagem, por exemplo). Eles não precisam de instalar nada.</p>
+
+        <p style="margin-top:16px;"><b style="color:#ffaa66;">Pela Internet (casas diferentes):</b><br>
+        Isto é mais avançado porque a tua rede normalmente bloqueia ligações de fora por segurança. Duas opções:</p>
+        <p style="margin-top:8px;padding-left:16px;">
+        <b>1. Port forwarding</b> — entras nas definições do teu router e abres a porta <code>8000</code> para este PC. Depois os teus amigos usam o teu IP público (procura "qual é o meu IP" no Google) em vez do IP local. Cada router é diferente; procura o manual do teu modelo.</p>
+        <p style="margin-top:8px;padding-left:16px;">
+        <b>2. ngrok (mais simples, sem mexer no router)</b> — instala o <a href="https://ngrok.com" target="_blank" style="color:#88ccff;">ngrok.com</a> (gratuito), depois no terminal corre <code>ngrok http 8000</code>. Ele dá-te um link público temporário que podes partilhar diretamente.</p>
+
+        <p style="margin-top:16px;color:#445566;">⚠ Em qualquer dos casos, o teu PC tem de estar ligado e com o <code>start_server.bat</code> aberto enquanto jogam — é ele que faz de servidor.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/map.js"></script>
+<script>
+// Stub mínimo: tower.js só precisa disto para o anel de alcance ao passar o rato.
+// Não é o motor de jogo completo (game.js) — aqui o estado real vem do servidor.
+var G = { hTwr: null, sTwr: null };
+</script>
+<script src="js/tower.js"></script>
+<script src="js/enemy.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════
+//  LIGAÇÃO WEBSOCKET
+// ══════════════════════════════════════════════════════════════
+var socket = null;
+var connected = false;
+var currentRoom = null;
+var currentMode = null;
+var amReady = false;
+
+function connectWS() {
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  socket = new WebSocket(proto + '//' + location.host + '/ws');
+
+  socket.onopen = function() {
+    connected = true;
+    var el = document.getElementById('conn-status');
+    el.className = 'ok';
+    document.getElementById('conn-text').textContent = 'Ligado ao servidor';
+  };
+
+  socket.onclose = function() {
+    connected = false;
+    var el = document.getElementById('conn-status');
+    el.className = 'bad';
+    document.getElementById('conn-text').textContent = 'Sem ligação ao servidor. Confirma que abriste o jogo via start_server.bat';
+  };
+
+  socket.onerror = function() {
+    var el = document.getElementById('conn-status');
+    el.className = 'bad';
+    document.getElementById('conn-text').textContent = 'Erro de ligação ao servidor multiplayer.';
+  };
+
+  socket.onmessage = function(ev) {
+    var data = JSON.parse(ev.data);
+    handleServerMessage(data);
+  };
+}
+
+function handleServerMessage(data) {
+  if (data.type === 'room_created' || data.type === 'room_joined') {
+    currentRoom = data.code;
+    currentMode = data.mode;
+    showRoomStep();
+  } else if (data.type === 'player_list') {
+    renderPlayerList(data.players);
+  } else if (data.type === 'ready_update') {
+    renderPlayerList(data.players);
+    if (data.allReady) {
+      document.getElementById('waiting-msg').textContent = 'Todos prontos! A iniciar...';
+    }
+  } else if (data.type === 'game_start') {
+    document.getElementById('btn-ready').style.display = 'none';
+    if (data.mode === 'coop' && !data.notImplemented) {
+      mpStartCoopView(data.map, data.difficulty);
+    } else {
+      document.getElementById('construction-notice').style.display = 'block';
+    }
+  } else if (data.type === 'game_state') {
+    mpApplySnapshot(data.snapshot);
+  } else if (data.type === 'action_result') {
+    if (!data.ok && data.error) mpLog('⚠ ' + data.error);
+  } else if (data.type === 'error') {
+    document.getElementById('join-error').textContent = data.message;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  JOGO COOPERATIVO — cliente "fino": só desenha o que o servidor
+//  manda e envia pedidos de ação. Reutiliza as classes Tower/Enemy
+//  e o MAP já existentes (mesmo código de desenho do single-player).
+// ══════════════════════════════════════════════════════════════
+var mpCanvas, mpCtx, mpTowers = [], mpEnemies = [], mpSnapshot = null;
+var mpSelectedTowerType = null, mpSelectedTower = null, mpMapInited = null;
+
+var MP_ATTACK_TOWERS = ['pistol','sniper','grenade','mortar','minigun','flamethrower','gerador'];
+var MP_SUPPORT_TOWERS = ['commander','djbooth'];
+// Nota: artilharia/observador (montanha) ficam de fora do MVP cooperativo —
+// exigiriam também sincronizar quais tiles são montanha por mapa no cliente.
+
+function mpStartCoopView(mapKey, difficulty) {
+  document.getElementById('step-room').style.display = 'none';
+  document.getElementById('coop-game').classList.add('show');
+
+  mpCanvas = document.getElementById('coop-canvas');
+  mpCtx = mpCanvas.getContext('2d');
+
+  if (mpMapInited !== mapKey) { MAP.init(mapKey); mpMapInited = mapKey; }
+
+  mpBuildTowerPicker();
+  mpCanvas.addEventListener('click', mpOnCanvasClick);
+  mpCanvas.addEventListener('mousemove', mpOnCanvasMove);
+  requestAnimationFrame(mpRenderLoop);
+  mpLog('Partida cooperativa iniciada — mapa ' + mapKey + ', dificuldade ' + difficulty);
+}
+
+function mpBuildTowerPicker() {
+  var wrap = document.getElementById('coop-controls');
+  wrap.innerHTML = '';
+  MP_ATTACK_TOWERS.concat(MP_SUPPORT_TOWERS).forEach(function(id) {
+    var cf = C.TW_DEF[id]; if (!cf) return;
+    var btn = document.createElement('div');
+    btn.className = 'tower-pick';
+    btn.innerHTML = '<div class="tpdot" style="background:' + cf.col.top + '"></div>' + cf.name + ' <span style="color:#445566;">$' + cf.cost + '</span>';
+    btn.onclick = function() {
+      mpSelectedTowerType = (mpSelectedTowerType === id) ? null : id;
+      mpSelectedTower = null;
+      mpBuildTowerPicker(); // redesenha para mostrar seleção
+    };
+    if (mpSelectedTowerType === id) btn.classList.add('selected');
+    wrap.appendChild(btn);
+  });
+}
+
+function mpApplySnapshot(snap) {
+  mpSnapshot = snap;
+
+  // Reconstrói instâncias REAIS de Tower/Enemy a partir dos dados do servidor,
+  // para poder chamar exatamente o mesmo código .drw(ctx) do single-player
+  // sem duplicar toda a lógica visual num segundo sítio.
+  mpTowers = snap.towers.map(function(s) {
+    var t = new Tower(s.col, s.row, s.type);
+    t.level = s.level; t.powered = s.powered;
+    t.dmgBuff = s.dmgBuff; t.spdBuff = s.spdBuff; // já vêm com a aura multiplicada
+    t.auraDmg = 1; t.auraSpd = 1; // evita duplicar o efeito (dmgBuff já inclui aura)
+    t.range = s.range; t.auraRange = s.auraRange; t.support = s.support; t.auraType = s.auraType;
+    t.aimAngle = s.aimAngle; t.tgt = s.hasTarget ? {} : null; // objeto vazio só para truthiness em _top()
+    t.id = s.id;
+    return t;
+  });
+
+  mpEnemies = snap.enemies.map(function(s) {
+    var e = new Enemy(s.type, 1);
+    e.gc = s.gc; e.gr = s.gr; e.hp = s.hp; e.mhp = s.mhp; e.prog = s.prog; e.sz = s.sz;
+    e.isBoss = s.isBoss; e.invisible = s.invisible; e.detected = s.detected; e.flying = s.flying;
+    e.sk = e.gc + e.gr;
+    return e;
+  });
+  mpTowers.forEach(function(t) { t.sk = t.col + t.row; });
+
+  mpUpdateHud(snap);
+
+  // Processa eventos deste tick (mortes, onda completa) para o log
+  (snap.events || []).forEach(function(ev) {
+    if (ev.type === 'wave_complete') mpLog('🌊 Onda ' + ev.wave + ' completa! +$' + ev.reward);
+  });
+
+  if (snap.state === 'won') mpLog('🏆 VITÓRIA! Todas as ondas completas.');
+  if (snap.state === 'lost') mpLog('💀 Derrota — a base foi destruída.');
+}
+
+function mpUpdateHud(snap) {
+  document.getElementById('hud-wave').textContent = (snap.waveNum + (snap.waveActive?1:0)) + '/' + snap.totalWaves;
+  document.getElementById('hud-gold').textContent = '$' + snap.gold;
+  document.getElementById('hud-enrg').textContent = Math.floor(snap.enrg) + '/' + snap.maxEnrg;
+  document.getElementById('hud-hp').textContent = snap.bhp + '/' + snap.maxBhp;
+  document.getElementById('hud-blood').textContent = Math.floor(snap.bloodPool);
+}
+
+function mpRenderLoop() {
+  if (mpCtx && mpSnapshot) {
+    var W = mpCanvas.width, H = mpCanvas.height;
+    var bg = mpCtx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,'#0d1b2a'); bg.addColorStop(1,'#1a3050');
+    mpCtx.fillStyle = bg; mpCtx.fillRect(0,0,W,H);
+
+    MAP.render(mpCtx, mpHoverCol, mpHoverRow, mpSelectedTowerType, false);
+
+    var objs = mpTowers.concat(mpEnemies);
+    objs.sort(function(a,b){ return (a.sk||0)-(b.sk||0); });
+    objs.forEach(function(o){ o.drw(mpCtx); });
+  }
+  requestAnimationFrame(mpRenderLoop);
+}
+
+var mpHoverCol = -1, mpHoverRow = -1;
+function mpOnCanvasMove(e) {
+  var rect = mpCanvas.getBoundingClientRect();
+  var scaleX = mpCanvas.width / rect.width, scaleY = mpCanvas.height / rect.height;
+  var x = (e.clientX - rect.left) * scaleX, y = (e.clientY - rect.top) * scaleY;
+  var g = U.inv(x, y);
+  mpHoverCol = g.col; mpHoverRow = g.row;
+  G.hTwr = mpTowers.find(function(t){ return t.col===g.col && t.row===g.row; }) || null;
+}
+
+function mpOnCanvasClick(e) {
+  var rect = mpCanvas.getBoundingClientRect();
+  var scaleX = mpCanvas.width / rect.width, scaleY = mpCanvas.height / rect.height;
+  var x = (e.clientX - rect.left) * scaleX, y = (e.clientY - rect.top) * scaleY;
+  var g = U.inv(x, y);
+
+  if (mpSelectedTowerType) {
+    sendGameAction('place_tower', { col: g.col, row: g.row, towerType: mpSelectedTowerType });
+    return;
+  }
+  var clicked = mpTowers.find(function(t){ return t.col===g.col && t.row===g.row; });
+  if (clicked) {
+    mpSelectedTower = clicked; G.sTwr = clicked;
+    mpShowTowerPanel(clicked);
+  }
+}
+
+function mpShowTowerPanel(t) {
+  var cf = C.TW_DEF[t.type];
+  var upgCost = t.level < 3 ? Math.floor(cf.cost * C.UPG_COSTS[t.level]) : 0;
+  var msg = cf.name + ' (nível ' + t.level + ')\n\n';
+  msg += t.level < 3 ? ('Upgrade: $' + upgCost + ' — OK para upgrade, Cancelar para vender.')
+                      : 'Nível máximo. OK para vender.';
+  if (confirm(msg)) {
+    if (t.level < 3) sendGameAction('upgrade_tower', { towerId: t.id });
+    else sendGameAction('sell_tower', { towerId: t.id });
+  } else if (t.level < 3) {
+    // Ofereceu upgrade mas cancelou — pergunta separadamente se quer vender
+  }
+}
+
+function sendGameAction(sub, payload) {
+  if (!connected) { mpLog('Sem ligação ao servidor.'); return; }
+  socket.send(JSON.stringify({ action: 'game_action', sub: sub, payload: payload }));
+}
+
+function mpStartWave() { sendGameAction('start_wave', {}); }
+function mpSkipWave() { sendGameAction('skip_wave', {}); }
+function mpCollectBlood() { sendGameAction('collect_blood', {}); }
+
+function mpLog(msg) {
+  var el = document.getElementById('coop-log');
+  var line = document.createElement('div');
+  line.textContent = msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+  while (el.children.length > 20) el.removeChild(el.firstChild);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  FLUXO DE UI: escolher → criar/entrar → sala
+// ══════════════════════════════════════════════════════════════
+function showCreateForm() {
+  document.getElementById('step-choose').style.display = 'none';
+  document.getElementById('step-create').style.display = 'block';
+  var nameInput = document.getElementById('create-name');
+  if (typeof PROFILE !== 'undefined') nameInput.value = PROFILE.activeName();
+}
+function showJoinForm() {
+  document.getElementById('step-choose').style.display = 'none';
+  document.getElementById('step-join').style.display = 'block';
+  var nameInput = document.getElementById('join-name');
+  if (typeof PROFILE !== 'undefined') nameInput.value = PROFILE.activeName();
+}
+function backToChoose() {
+  document.getElementById('step-create').style.display = 'none';
+  document.getElementById('step-join').style.display = 'none';
+  document.getElementById('step-choose').style.display = 'block';
+  document.getElementById('join-error').textContent = '';
+}
+
+var selectedMode = null;
+function selectMode(mode) {
+  selectedMode = mode;
+  document.getElementById('mode-coop').style.borderColor = mode === 'coop' ? '#7733aa' : '#1e2e3e';
+  document.getElementById('mode-pvp').style.borderColor = mode === 'pvp' ? '#7733aa' : '#1e2e3e';
+  document.getElementById('btn-do-create').disabled = false;
+}
+
+function doCreateRoom() {
+  if (!connected) { alert('Sem ligação ao servidor.'); return; }
+  var name = document.getElementById('create-name').value.trim() || 'Jogador';
+  socket.send(JSON.stringify({ action: 'create_room', mode: selectedMode, name: name }));
+}
+
+function doJoinRoom() {
+  if (!connected) { alert('Sem ligação ao servidor.'); return; }
+  var name = document.getElementById('join-name').value.trim() || 'Jogador';
+  var code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (code.length !== 5) {
+    document.getElementById('join-error').textContent = 'O código tem 5 caracteres.';
+    return;
+  }
+  document.getElementById('join-error').textContent = '';
+  socket.send(JSON.stringify({ action: 'join_room', code: code, name: name }));
+}
+
+function showRoomStep() {
+  document.getElementById('step-choose').style.display = 'none';
+  document.getElementById('step-create').style.display = 'none';
+  document.getElementById('step-join').style.display = 'none';
+  document.getElementById('step-room').style.display = 'block';
+  document.getElementById('room-code-display').textContent = currentRoom;
+  document.getElementById('room-mode-label').textContent =
+    currentMode === 'coop' ? '🤝 SALA COOPERATIVA' : '⚔️ SALA COMPETITIVA';
+  document.getElementById('construction-notice').style.display = 'none';
+  document.getElementById('btn-ready').style.display = 'block';
+  document.getElementById('btn-ready').disabled = false;
+  document.getElementById('btn-ready').textContent = '✓ ESTOU PRONTO';
+  amReady = false;
+}
+
+function renderPlayerList(players) {
+  var wrap = document.getElementById('player-list');
+  wrap.innerHTML = '';
+  players.forEach(function(p) {
+    var row = document.createElement('div');
+    row.className = 'player-row' + (p.ready ? ' ready' : '');
+    row.innerHTML =
+      '<div class="pavatar">' + (p.ready ? '✓' : '👤') + '</div>' +
+      '<div class="pname">' + escapeHtml(p.name) + '</div>' +
+      '<div class="pready ' + (p.ready ? 'is-ready' : 'not-ready') + '">' + (p.ready ? 'PRONTO' : 'a aguardar') + '</div>';
+    wrap.appendChild(row);
+  });
+  document.getElementById('waiting-msg').textContent =
+    players.length < 2 ? 'A aguardar mais jogadores... (mín. 2)' : 'A aguardar todos ficarem prontos...';
+}
+
+function markReady() {
+  socket.send(JSON.stringify({ action: 'ready' }));
+  amReady = true;
+  document.getElementById('btn-ready').disabled = true;
+  document.getElementById('btn-ready').textContent = '✓ PRONTO (à espera dos outros)';
+}
+
+function leaveRoomBtn() {
+  if (socket && connected) socket.send(JSON.stringify({ action: 'leave_room' }));
+  currentRoom = null;
+  document.getElementById('step-room').style.display = 'none';
+  document.getElementById('step-choose').style.display = 'block';
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LEADERBOARD
+// ══════════════════════════════════════════════════════════════
+function loadLeaderboard(mode) {
+  document.querySelectorAll('.lb-tab').forEach(function(t, i) {
+    t.classList.toggle('active', ['solo','coop','pvp'][i] === mode);
+  });
+  var wrap = document.getElementById('lb-table-wrap');
+  wrap.innerHTML = '<div id="lb-empty">A carregar...</div>';
+
+  fetch('/api/leaderboard?mode=' + mode + '&limit=50')
+    .then(function(r) { return r.json(); })
+    .then(function(entries) {
+      if (!entries.length) {
+        wrap.innerHTML = '<div id="lb-empty">Ainda não há pontuações registadas neste modo.<br>Joga uma partida para apareceres aqui!</div>';
+        return;
+      }
+      var html = '<table><thead><tr><th>#</th><th>Nome</th><th>Dificuldade</th><th>Mapa</th><th>Ondas</th><th>Abates</th><th>Ouro</th><th>Resultado</th></tr></thead><tbody>';
+      entries.forEach(function(e, i) {
+        var rankClass = i === 0 ? 'r1' : i === 1 ? 'r2' : i === 2 ? 'r3' : '';
+        html += '<tr>' +
+          '<td class="lb-rank ' + rankClass + '">' + (i+1) + '</td>' +
+          '<td>' + escapeHtml(e.name) + '</td>' +
+          '<td>' + e.difficulty + '</td>' +
+          '<td>' + e.map + '</td>' +
+          '<td>' + e.wavesCompleted + '/8</td>' +
+          '<td>' + e.kills + '</td>' +
+          '<td>$' + e.goldEarned + '</td>' +
+          '<td class="' + (e.won ? 'lb-won' : 'lb-lost') + '">' + (e.won ? '🏆 Vitória' : 'Derrota') + '</td>' +
+        '</tr>';
+      });
+      html += '</tbody></table>';
+      wrap.innerHTML = html;
+    })
+    .catch(function() {
+      wrap.innerHTML = '<div id="lb-empty">Não foi possível carregar o leaderboard. O servidor está a correr?</div>';
+    });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════════════════
+function showTab(id) {
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+  document.getElementById('page-' + id).classList.add('active');
+  if (id === 'leaderboard') loadLeaderboard('solo');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════
+document.getElementById('lan-url').textContent = location.protocol + '//' + location.host + '/login.html';
+document.getElementById('join-code').addEventListener('input', function(e) {
+  e.target.value = e.target.value.toUpperCase();
+});
+connectWS();
+</script>
+</body>
+</html>

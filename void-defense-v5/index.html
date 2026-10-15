@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Void Defense</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#03050c;font-family:'Rajdhani',sans-serif;}
+canvas#bg{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;}
+
+#ui{
+  position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:0;
+}
+
+/* ── TÍTULO ── */
+#title-wrap{text-align:center;margin-bottom:48px;}
+#game-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(52px,8vw,104px);
+  font-weight:900;color:#fff;
+  letter-spacing:8px;
+  text-shadow:0 0 30px #2255cc,0 0 80px #112299,0 0 2px #fff;
+  animation:titlePulse 3s ease-in-out infinite;
+  cursor:default;user-select:none;
+}
+@keyframes titlePulse{
+  0%,100%{text-shadow:0 0 30px #2255cc,0 0 80px #112299,0 0 2px #fff;}
+  50%{text-shadow:0 0 50px #4488ff,0 0 120px #2244cc,0 0 4px #fff;}
+}
+#tagline{
+  font-family:'Rajdhani',sans-serif;font-size:clamp(14px,1.6vw,20px);
+  color:#3a5a8a;letter-spacing:4px;text-transform:uppercase;margin-top:12px;
+}
+
+/* ── BOTÕES ── */
+#btn-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:420px;}
+
+.cover-btn{
+  width:100%;padding:18px 0;border-radius:10px;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:clamp(14px,1.5vw,18px);
+  font-weight:700;letter-spacing:3px;border:2px solid;
+  transition:all .18s;text-decoration:none;display:flex;
+  align-items:center;justify-content:center;gap:12px;
+}
+#btn-play{
+  background:linear-gradient(135deg,#0a2810,#0d3a14);
+  border-color:#44cc44;color:#44ff66;
+  box-shadow:0 0 20px rgba(68,204,68,0.2);
+}
+#btn-play:hover{
+  background:linear-gradient(135deg,#0f3818,#115020);
+  box-shadow:0 0 32px rgba(68,204,68,0.5);
+  transform:scale(1.03);
+}
+#btn-continue{
+  background:linear-gradient(135deg,#08142a,#0a1e3a);
+  border-color:#3366bb;color:#6699dd;
+  font-size:clamp(12px,1.2vw,15px);padding:13px 0;
+}
+#btn-continue:hover{box-shadow:0 0 20px rgba(68,136,255,0.4);transform:scale(1.01);}
+#btn-continue.locked{opacity:.3;pointer-events:none;filter:grayscale(1);}
+
+#save-info{
+  font-family:'Orbitron',sans-serif;font-size:11px;color:#335577;
+  text-align:center;margin-top:-6px;
+}
+
+/* ── LINHA EXTRA ── */
+#extra-btns{display:flex;gap:12px;margin-top:6px;}
+.small-cover-btn{
+  font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;
+  padding:8px 18px;border-radius:6px;cursor:pointer;
+  border:1px solid #1e2a3a;background:rgba(255,255,255,0.03);
+  color:#3a4a5a;transition:.15s;text-decoration:none;
+}
+.small-cover-btn:hover{border-color:#334455;color:#667788;}
+
+/* ── RODAPÉ ── */
+#footer{
+  position:fixed;bottom:16px;width:100%;
+  text-align:center;z-index:2;
+  font-family:'Orbitron',sans-serif;font-size:10px;color:#1a2230;
+  letter-spacing:1px;
+}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+
+<div id="ui">
+  <div id="title-wrap">
+    <div id="game-title">VOID DEFENSE</div>
+    <div id="tagline">Defende a base · Sobrevive às hordas · 8 ondas</div>
+  </div>
+
+  <div id="btn-wrap">
+    <a class="cover-btn" id="btn-play" href="menu.html">▶&nbsp;&nbsp;JOGAR</a>
+    <a class="cover-btn locked" id="btn-continue" href="game.html?continue=1">↺&nbsp;&nbsp;CONTINUAR PARTIDA</a>
+    <div id="save-info"></div>
+
+    <div id="extra-btns">
+      <a class="small-cover-btn" href="multiplayer.html" style="border-color:#5a2a7a;color:#aa77cc;">👥 Multijogador</a>
+      <a class="small-cover-btn" href="menu.html">🏪 Loja &amp; Loadout</a>
+      <a class="small-cover-btn" href="menu.html#manual">📖 Manual</a>
+      <a class="small-cover-btn" href="login.html">👤 Mudar Perfil</a>
+      <a class="small-cover-btn" href="admin.html" id="admin-btn" style="display:none;">⚙ Admin</a>
+    </div>
+  </div>
+</div>
+
+<div id="footer">VOID DEFENSE v5.0 · obra em progresso</div>
+
+<script>
+// ── Fundo animado ──────────────────────────────────────────────
+var canvas=document.getElementById('bg'), ctx=canvas.getContext('2d');
+var W,H,t=0;
+var stars=[],nebParticles=[],grid=[];
+function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;buildGrid();}
+window.addEventListener('resize',resize);
+
+// Grelha isométrica de fundo (estática, rederenha ao resize)
+function buildGrid(){
+  grid=[];
+  var tw=48,th=24,cols=Math.ceil(W/tw)+4,rows=Math.ceil(H/th)+4;
+  for(var c=-2;c<cols;c++) for(var r=-2;r<rows;r++){
+    grid.push({x:(c-r)*tw/2+W/2,y:(c+r)*th/2+H*0.2,a:0.02+Math.random()*0.03});
+  }
+}
+// Estrelas
+for(var i=0;i<180;i++) stars.push({x:Math.random(),y:Math.random(),r:Math.random()*1.4+0.2,s:Math.random()*0.6+0.2,ph:Math.random()*Math.PI*2});
+// Partículas de nebulosa
+for(var i=0;i<28;i++) nebParticles.push({x:Math.random()*2,y:Math.random()*2,vx:(Math.random()-0.5)*0.0008,vy:(Math.random()-0.5)*0.0008,r:Math.random()*2.5+1,hue:Math.random()<0.6?220:200+Math.random()*60});
+
+function draw(){
+  t+=0.016;
+  // Fundo
+  var bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#030610'); bg.addColorStop(0.5,'#060c1e'); bg.addColorStop(1,'#030610');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+  // Nebulosa radial suave
+  var nc=ctx.createRadialGradient(W*.5,H*.4,0,W*.5,H*.4,W*.55);
+  nc.addColorStop(0,'rgba(20,40,130,0.12)'); nc.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=nc; ctx.fillRect(0,0,W,H);
+
+  // Grelha iso (fundo muito ténue)
+  ctx.globalAlpha=0.028; ctx.strokeStyle='#4488ff'; ctx.lineWidth=0.8;
+  for(var i=0;i<grid.length;i++){
+    var g=grid[i],tw2=24,th2=12;
+    ctx.beginPath();
+    ctx.moveTo(g.x,g.y-th2); ctx.lineTo(g.x+tw2,g.y);
+    ctx.lineTo(g.x,g.y+th2); ctx.lineTo(g.x-tw2,g.y);
+    ctx.closePath(); ctx.stroke();
+  }
+
+  // Estrelas
+  for(var i=0;i<stars.length;i++){
+    var s=stars[i],p=0.3+0.7*Math.abs(Math.sin(t*s.s+s.ph));
+    ctx.globalAlpha=p*0.75; ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(s.x*W,s.y*H,s.r*p,0,Math.PI*2); ctx.fill();
+  }
+
+  // Partículas de nebulosa
+  for(var i=0;i<nebParticles.length;i++){
+    var p=nebParticles[i]; p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0)p.x=2; if(p.x>2)p.x=0; if(p.y<0)p.y=2; if(p.y>2)p.y=0;
+    ctx.globalAlpha=0.28+0.15*Math.sin(t*0.5+i);
+    ctx.shadowBlur=10; ctx.shadowColor='hsl('+p.hue+',70%,55%)';
+    ctx.fillStyle='hsl('+p.hue+',65%,60%)';
+    ctx.beginPath(); ctx.arc(p.x*W,p.y*H,p.r,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
+  ctx.globalAlpha=1;
+  requestAnimationFrame(draw);
+}
+resize(); draw();
+
+// ── Verificar save ──────────────────────────────────────────────
+(function(){
+  try{
+    var raw=localStorage.getItem('vd_sv_1');
+    if(raw){
+      var d=JSON.parse(raw);
+      if(d&&d.v===5){
+        document.getElementById('btn-continue').classList.remove('locked');
+        document.getElementById('btn-continue').href='game.html?continue=1';
+        var mn=(typeof C!=='undefined'&&C.MAPS&&C.MAPS[d.map])?C.MAPS[d.map].name:d.map||'?';
+        document.getElementById('save-info').textContent='Onda '+(d.wave+1)+'/8  ·  $'+d.gold+'  ·  '+mn;
+      }
+    }
+  }catch(e){}
+})();
+
+// ── Admin link oculto (triple-click no título) ──────────────────
+var _tc=0;
+document.getElementById('game-title').addEventListener('click',function(){
+  _tc++;
+  if(_tc>=3){document.getElementById('admin-btn').style.display='';_tc=0;}
+  setTimeout(function(){if(_tc>0)_tc=0;},800);
+});
+</script>
+<script src="js/profile.js"></script>
+<script>
+// ── Perfil ativo ─────────────────────────────────────────────
+(function(){
+  // Redireciona para login se não há perfil ativo
+  if (!PROFILE.activeId() || !PROFILE.list().some(function(p){ return p.id===PROFILE.activeId(); })) {
+    window.location.href = 'login.html';
+    return;
+  }
+  // Mostra nome do perfil na capa
+  var name = PROFILE.activeName();
+  var footer = document.getElementById('footer');
+  if (footer) footer.textContent = '👤 ' + name + '  ·  Void Defense v5.0';
+})();
+
+// Guarda dados ao navegar para outra página
+window.addEventListener('beforeunload', function(){ PROFILE.save(); });
+</script>
+</body>
+</html>
